@@ -1,0 +1,194 @@
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}">
+
+<legend><h1 id="identificador"></h1></legend>
+<p id="localOrigem"></p>
+<p id="disponivel"></p>
+
+<section id="evento-atual" style="display: none;">
+    <legend><h1 id="evento-atual-id"></h1></legend>
+    <p id="doente"></p>
+    <p id="evento"></p>
+    <p id="local"></p>
+    <p id="horas"></p>
+    <button type="button" class="login-button" onclick="desmobilizar()"> Desmobilizar </button>
+</section>
+
+<legend><h1> Estatísticas </h1></legend>
+<p id="total"></p>
+<p id="todos-eventos"></p>
+
+<br><br>
+<button type="button" class="return-button" onclick="redirect()"> Voltar à página inicial </button>
+
+<script>
+    window.onload = function() {
+      let pk = window.location.pathname.split("/")[4];
+      fetch(`http://127.0.0.1:8000/codu/rest/ambulancia/${pk}/`)
+              .then((response) => response.json())
+              .then((data) => {
+                let identificador = document.getElementById("identificador");
+                identificador.textContent = data.tipo + " " + data.id;
+                let localOrigem = document.getElementById("localOrigem");
+                localOrigem.textContent = "Posto de Origem: " + data.localOrigem;
+                let disponivel = document.getElementById("disponivel");
+                if (data.disponivel) {
+                  disponivel.textContent = "O meio encontra-se disponível";
+                  document.getElementById("evento-atual").style.display = "none";
+                } else {
+                  disponivel.textContent = "O meio encontra-se na ocorrência de ID: " + data.eventoAtual;
+                  document.getElementById("evento-atual").style.display = "block";
+                  get_evento_atual(data.eventoAtual);
+                }
+                let total = document.getElementById("total");
+                total.textContent = "Este meio foi mobilizado para " + data.totalMobilizacoes + " ocorrências, tendo percorrido um total de " + data.totalDistancia + " km";
+                let todos_eventos = document.getElementById("todos-eventos");
+                todos_eventos.textContent = "Este meio foi mobilizado para os seguintes eventos: " + data.eventos;
+              })
+              .catch((error) => {
+                console.error("Error:", error);
+              });
+    }
+
+    function get_evento_atual(pk) {
+      fetch(`http://127.0.0.1:8000/codu/rest/evento/${pk}/`)
+              .then((response) => response.json())
+              .then((data) => {
+                let identificador = document.getElementById("evento-atual-id");
+                identificador.textContent = "Evento atual " + data.id + "; ID do técnico responsável: " + data.tecnico;
+                let doente = document.getElementById("doente");
+                doente.textContent = "Doente " + data.nomeDoente + ", " + data.idadeDoente + " anos de idade";
+                let evento = document.getElementById("evento");
+                evento.textContent = "Descrição: " + data.descricao + "; Grau: " + data.grau;
+                let local = document.getElementById("local");
+                local.textContent = "Local: " + data.localx + ", " + data.localy;
+                let horas = document.getElementById("horas");
+                let ativ, concl
+                if (data.timestampAtiv) {
+                  ativ = new Date(data.timestampAtiv).toLocaleString();
+                } else {
+                  ativ = "N/A";
+                }
+                if (data.timestampConcl) {
+                  concl = new Date(data.timestampConcl).toLocaleString();
+                } else {
+                  concl = "N/A";
+                }
+                horas.textContent = "Início: " + ativ + "; Fim: " + concl;
+              })
+              .catch((error) => {
+                console.error("Error:", error);
+              });
+    }
+
+    async function desmobilizar() {
+      <!--Do prórpio meio de socorro: evento (para o seu local), posto (para o seu local), e total distância atual-->
+      let pk = window.location.pathname.split("/")[4];
+      let eventopk, x_evento, y_evento, postopk, x_posto, y_posto, distancia_atual, distancia_percorrida;
+      await fetch(`http://127.0.0.1:8000/codu/rest/ambulancia/${pk}/`)
+              .then((response) => response.json())
+              .then((data) => {
+                  eventopk = data.eventoAtual
+                  postopk = data.localOrigem
+                  distancia_atual = data.totalDistancia
+              })
+              .catch((error) => {
+                console.error("Error:", error);
+              });
+
+      <!--Do evento: x e y-->
+      let evento_nome, evento_grau, evento_timestampAtiv, evento_tecnico
+      if(eventopk){
+          await fetch(`http://127.0.0.1:8000/codu/rest/evento/${eventopk}/`)
+                .then((response) => response.json())
+                .then((data) => {
+                    x_evento = data.localx;
+                    y_evento = data.localy;
+                    evento_nome = data.nomeDoente;
+                    evento_grau = data.grau;
+                    evento_timestampAtiv = data.timestampAtiv;
+                    evento_tecnico = data.tecnico
+                })
+                .catch((error) => {
+                    console.error("Error:", error);
+                });
+        }
+
+      <!--Do posto: x e y-->
+      if(postopk){
+          let encodedpostopk = encodeURI(postopk);
+          await fetch(`http://127.0.0.1:8000/codu/rest/posto/${encodedpostopk}/`)
+              .then((response) => response.json())
+              .then((data) => {
+                  x_posto = data.x
+                  y_posto = data.y
+              })
+              .catch((error) => {
+                  console.error("Error:", error);
+              });
+      }
+
+      <!--Atualizar evento-->
+      let currentDate = new Date()
+      let data_evento = {
+          "nomeDoente": evento_nome,
+          "grau": evento_grau,
+          "timestampAtiv": evento_timestampAtiv,
+          "timestampConcl": currentDate.toJSON().slice(0, -5) + "Z",
+          "tecnico": evento_tecnico
+      }
+
+      await fetch(`http://127.0.0.1:8000/codu/rest/evento/${eventopk}/`, {
+          method: "PUT",
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data_evento),
+      })
+          .then((response) => {
+              if (!response.ok) {
+                  throw new Error("Error updating evento");
+              }
+          })
+          .catch((error) => {
+              console.error("Error:", error);
+          });
+
+      <!--Atualizar meio-->
+      distancia_percorrida = pythagorean((x_posto-x_evento),(y_posto-y_evento));
+
+      let distancia_final = distancia_atual+distancia_percorrida;
+
+      let data = {
+          "disponivel": true,
+          "eventoAtual": null,
+          "totalDistancia": distancia_final
+      }
+
+      await fetch(`http://127.0.0.1:8000/codu/rest/ambulancia/${pk}/`, {
+          method: "PUT",
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+      })
+          .then((response) => {
+              if (!response.ok) {
+                  throw new Error("Error updating ambulancia");
+              }
+          })
+          .catch((error) => {
+              console.error("Error:", error);
+          });
+
+      window.location.href = "";
+    }
+
+    function pythagorean(sideA, sideB){
+      return Math.round(Math.sqrt(Math.pow(sideA, 2) + Math.pow(sideB, 2)));
+    }
+
+    function redirect() {
+      window.location.href = "http://127.0.0.1:8000/codu/";
+    }
+</script>

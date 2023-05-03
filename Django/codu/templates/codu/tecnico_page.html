@@ -1,0 +1,367 @@
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}">
+
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}">
+
+<legend><h1 id="identificador"></h1></legend>
+<p id="data_nasc"></p>
+
+<legend><h1> Novo Evento </h1></legend>
+<label for="nome-doente"></label>Nome do doente<input type="text" id="nome-doente" placeholder="(Opcional)"><br>
+<label for="idade-doente"></label>Idade do doente<input type="text" id="idade-doente" placeholder="(Opcional)"><br>
+<label for="descricao">Descrição do evento</label><input type="text" id="descricao" placeholder="(Opcional)"><br>
+<label for="grau">Grau do evento:</label>
+<select id="grau">
+  <option value="1">1 - SBV</option>
+  <option value="2">2 - SBV_U</option>
+  <option value="3">3 - SAV</option>
+  <option value="4">4 - SAV_U</option>
+</select><br>
+<label for="localx">localx</label><input type="text" id="localx"><br>
+<label for="localy">localy</label><input type="text" id="localy"><br><br>
+<button type="button" class="login-button" onclick="novo_evento()"> Criar evento </button>
+
+
+<legend><h1> Estatísticas </h1></legend>
+<p id="n_eventos"></p>
+<p> Responsável por mobilizar: </p>
+<p id="n_ambulnacias"></p>
+<p id="n_motos"></p>
+<p id="n_veiculos"></p>
+<p id="n_helicopeteros"></p>
+
+<br><br>
+<button type="button" class="return-button" onclick="redirect()"> Voltar à página inicial </button>
+
+<script>
+    window.onload = function() {
+        let pk = window.location.pathname.split("/")[3];
+        fetch(`http://127.0.0.1:8000/codu/rest/tecnico/${pk}/`)
+        .then((response) => response.json())
+        .then((data) => {
+            let identificador = document.getElementById("identificador");
+            identificador.textContent = "Técnico: " + data.nome + "; ID do técnico responsável: " + data.id;
+            let data_nasc = document.getElementById("data_nasc");
+            data_nasc.textContent = "Data de Nascimento: " + data.data_nascimento;
+            let n_eventos = document.getElementById("n_eventos");
+            n_eventos.textContent = "Atendeu um total de " + data.totalEventos + " eventos";
+            let n_ambulnacias = document.getElementById("n_ambulnacias");
+            n_ambulnacias.textContent = data.totalAmbulancias + " ambulâncias";
+            let n_motos = document.getElementById("n_motos");
+            n_motos.textContent = data.totalMotos + " motos";
+            let n_veiculos = document.getElementById("n_veiculos");
+            n_veiculos.textContent = data.totalVeiculos + " ambulâncias";
+            let n_helicopeteros = document.getElementById("n_helicopeteros");
+            n_helicopeteros.textContent = data.totalVeiculos + " ambulâncias";
+
+        })
+        .catch((error) => {
+            console.error("Error:", error);
+        });
+    }
+
+    async function novo_evento() {
+      <!--Meios de Socorro-->
+      let meios_transporte, meios_auxilio = [];
+      let url;
+      let found = false;
+
+      <!--Variáveis do Evento-->
+      let nomeDoente = document.getElementById("nome-doente").value;
+      let idadeDoente = document.getElementById("idade-doente").value;
+      let descricao = document.getElementById("descricao").value;
+      let grau = document.getElementById("grau").value;
+      let grau_procura = document.getElementById("grau").value;
+      let currentDate = new Date();
+      let tecnico = window.location.pathname.split("/")[3];
+      let localx = document.getElementById("localx").value;
+      let localy = document.getElementById("localy").value;
+
+      <!--Procura todos os Meios de Livres conforme o Grau-->
+      while (!found) {
+        if (grau_procura === "1" || grau_procura === "2" || grau_procura === "3") {
+          url = "http://127.0.0.1:8000/codu/rest/ambulancia/";
+        } else {
+          url = "http://127.0.0.1:8000/codu/rest/helicoptero/";
+        }
+
+        await fetch(url)
+                .then(response => response.json())
+                .then(async data => {
+                  meios_transporte = data.filter(meio => meio.disponivel === true);
+                  if (meios_transporte.length === 0) {
+                    if (grau_procura === "1" || grau_procura === "2" || grau_procura === "3") {
+                      grau_procura = "4";
+                      if (grau === "4") {
+                        alert("Não há meios de socorro suficientes!!!");
+                        return 1;
+                      }
+                    } else {
+                      grau_procura = "3";
+                      if (grau === "1" || grau === "2" || grau === "3") {
+                        alert("Não há meios de socorro suficientes!!!");
+                        return 1;
+                      }
+                    }
+                  } else {
+                    if (grau_procura === "2" || grau_procura === "3") {
+                      if (grau_procura === "2") {
+                        url = "http://127.0.0.1:8000/codu/rest/moto/";
+                      } else if (grau_procura === "3") {
+                        url = "http://127.0.0.1:8000/codu/rest/veiculo/";
+                      }
+                      await fetch(url)
+                              .then(response => response.json())
+                              .then(data => {
+                                meios_auxilio = data.filter(meio => meio.disponivel === true);
+                                if (meios_auxilio.length === 0) {
+                                  if (grau_procura === "2") {
+                                    found = true;
+                                  } else {
+                                    grau_procura = "4";
+                                  }
+                                } else {
+                                  found = true;
+                                }
+                              })
+                              .catch((error) => {
+                                console.error("Error:", error);
+                              });
+                    } else {
+                      found = true;
+                    }
+                  }
+                })
+                .catch((error) => {
+                  console.error("Error:", error);
+                });
+      }
+
+      <!--Criar Evento-->
+      if (!idadeDoente) {
+        idadeDoente = 0
+      }
+      let data_evento = {
+        "nomeDoente": nomeDoente,
+        "idadeDoente": idadeDoente,
+        "descricao": descricao,
+        "grau": grau,
+        "timestampAtiv": currentDate.toJSON().slice(0, -5) + "Z",
+        "tecnico": tecnico,
+        "localx": localx,
+        "localy": localy
+      }
+
+      let evento_id;
+      await fetch(`http://127.0.0.1:8000/codu/rest/evento/`, {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data_evento),
+      })
+              .then((response) => response.json())
+              .then(data => {
+                evento_id = data.id;
+              })
+              .catch((error) => {
+                console.error("Error:", error);
+              });
+
+      <!--Get estatísticas do Técnico-->
+      let tecnico_id = window.location.pathname.split("/")[3];
+      let totalEventos, totalAmbulancias, totalMotos, totalVeiculos, totalHelicopteros, nome, data_nascimento;
+      await fetch(`http://127.0.0.1:8000/codu/rest/tecnico/${tecnico_id}/`)
+        .then((response) => response.json())
+        .then((data) => {
+            totalEventos = data.totalEventos;
+            totalAmbulancias = data.totalAmbulancias;
+            totalMotos = data.totalMotos;
+            totalVeiculos = data.totalVeiculos;
+            totalHelicopteros = data.totalHelicopteros;
+            nome = data.nome;
+            data_nascimento = data.data_nascimento;
+        })
+        .catch((error) => {
+            console.error("Error:", error);
+        });
+      totalEventos += 1;
+
+      <!--Procura Meio de Transporte livre mais próximo-->
+      let meio_transporte, posto_transporte, meio, posto_corrente;
+      let distancia_max = Number.MAX_SAFE_INTEGER;
+      for (let i = 0; i < meios_transporte.length; i++) {
+        meio = meios_transporte[i]
+        let posto = meio.localOrigem;
+        let postox, postoy, distancia;
+        let posto_url = encodeURI(posto);
+          await fetch(`http://127.0.0.1:8000/codu/rest/posto/${posto_url}/`)
+              .then((response) => response.json())
+              .then((data) => {
+                posto_corrente = data;
+                postox = data.x
+                postoy = data.y
+              })
+              .catch((error) => {
+                  console.error("Error:", error);
+              });
+        distancia = pythagorean(postox - localx, postoy - localy)
+        if (distancia < distancia_max) {
+          distancia_max = distancia;
+          meio_transporte = meio;
+          posto_transporte = posto_corrente;
+        }
+      }
+
+      <!--Procura Meio de Auxílio livre mais próximo-->
+      let meio_auxilio, posto_auxilio;
+      for (let i = 0; i < meios_auxilio.length; i++) {
+        meio = meios_auxilio[i]
+        let posto = meio.localOrigem;
+        let postox, postoy, distancia;
+        let distancia_max = Number.MAX_SAFE_INTEGER;
+        let posto_url = encodeURI(posto);
+          await fetch(`http://127.0.0.1:8000/codu/rest/posto/${posto_url}/`)
+              .then((response) => response.json())
+              .then((data) => {
+                posto_corrente = data;
+                postox = data.x
+                postoy = data.y
+              })
+              .catch((error) => {
+                  console.error("Error:", error);
+              });
+        distancia = pythagorean(postox - localx, postoy - localy)
+        if (distancia < distancia_max) {
+          distancia_max = distancia;
+          meio_auxilio = meio;
+          posto_auxilio = posto_corrente;
+        }
+      }
+
+      <!--Atualizar Meios-->
+      let meios;
+
+      if (meio_auxilio) {
+        meios = [meio_transporte, meio_auxilio];
+      } else {
+        meios = [meio_transporte];
+      }
+
+      for (let i = 0; i < meios.length; i++) {
+        meio = meios[i];
+        let totalMobilizacoes;
+        let eventos = [];
+        totalMobilizacoes = meio.totalMobilizacoes;
+        totalMobilizacoes += 1;
+        eventos = meio.eventos;
+        eventos.push(evento_id);
+
+        let data_meio = {
+          "disponivel": false,
+          "eventoAtual": evento_id,
+          "totalMobilizacoes": totalMobilizacoes,
+          "eventos": eventos
+        }
+
+        let tipo = meio.tipo;
+        let tipo_url = tipo.toLowerCase();
+        await fetch(`http://127.0.0.1:8000/codu/rest/${tipo_url}/${meio.id}/`, {
+          method: "PUT",
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data_meio),
+      })
+          .then((response) => response.json())
+          .catch((error) => {
+              console.error("Error:", error);
+          });
+      }
+
+      <!--Atualizar Postos-->
+      let postos, pos;
+
+      if (posto_auxilio) {
+        postos = [posto_transporte, posto_auxilio]
+      } else {
+        postos = [posto_transporte]
+      }
+
+      for (let i = 0; i < postos.length; i++) {
+        pos=postos[i];
+
+        let totalMobilizacoes;
+        totalMobilizacoes = pos.totalMobilizacoes;
+        totalMobilizacoes += 1;
+
+        let data_posto = {
+          "descricao": pos.descricao,
+          "totalMobilizacoes": totalMobilizacoes,
+        }
+
+        let des = pos.descricao;
+        let des_url = encodeURI(des)
+
+        await fetch(`http://127.0.0.1:8000/codu/rest/posto/${des_url}/`, {
+          method: "PUT",
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data_posto),
+      })
+          .then((response) => response.json())
+          .catch((error) => {
+              console.error("Error:", error);
+          });
+      }
+
+      <!--Atualizar Técnico-->
+      if (meio_transporte.tipo === "Ambulancia") {
+        totalAmbulancias += 1;
+      } else {
+        totalHelicopteros += 1;
+      }
+
+      if (meio_auxilio) {
+        if (meio_auxilio.tipo === "Moto") {
+          totalMotos += 1;
+        } else {
+          totalVeiculos += 1;
+        }
+      }
+
+      let data_tecnico = {
+        "nome": nome,
+        "data_nascimento": data_nascimento,
+        "totalEventos": totalEventos,
+        "totalAmbulancias": totalAmbulancias,
+        "totalMotos": totalMotos,
+        "totalVeiculos": totalVeiculos,
+        "totalHelicopteros": totalHelicopteros
+      }
+
+      await fetch(`http://127.0.0.1:8000/codu/rest/tecnico/${tecnico_id}/`, {
+          method: "PUT",
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data_tecnico),
+      })
+          .then((response) => response.json())
+          .catch((error) => {
+              console.error("Error:", error);
+          });
+
+      window.location.href = "";
+    }
+
+    function pythagorean(sideA, sideB){
+      return Math.round(Math.sqrt(Math.pow(sideA, 2) + Math.pow(sideB, 2)));
+    }
+
+    function redirect() {
+        window.location.href = "http://127.0.0.1:8000/codu/";
+    }
+</script>

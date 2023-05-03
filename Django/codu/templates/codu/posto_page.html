@@ -1,0 +1,69 @@
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}">
+
+<legend><h1 id="descricao"></h1></legend>
+<p id="coordenadas"></p>
+
+<legend><h1> Estatísticas </h1></legend>
+<p id="totalMobilizacoes"></p>
+<p id="num_meios"></p>
+<p id="num_amb"></p>
+<p id="num_moto"></p>
+<p id="num_veic"></p>
+<p id="num_hel"></p>
+
+
+<br><br>
+<button type="button" class="return-button" onclick="redirect()"> Voltar à página inicial </button>
+
+<script>
+    window.onload = async function() {
+        let pk = window.location.pathname.split("/")[3];
+        let posto_id;
+        fetch(`http://127.0.0.1:8000/codu/rest/posto/${pk}/`)
+        .then((response) => response.json())
+        .then((data) => {
+            let descricao = document.getElementById("descricao");
+            descricao.textContent = data.descricao;
+            posto_id = data.descricao;
+            let coordenadas = document.getElementById("coordenadas");
+            coordenadas.textContent = `Localização: ${data.x}, ${data.y}`;
+            let totalMobilizacoes = document.getElementById("totalMobilizacoes");
+            totalMobilizacoes.textContent = `Número total de mobilizações: ${data.totalMobilizacoes}`;
+        })
+        .catch((error) => {
+            console.error("Error:", error);
+        });
+
+        let lista_id = ["num_amb","num_moto","num_veic","num_hel"];
+        let urls = ["http://127.0.0.1:8000/codu/rest/ambulancia/", "http://127.0.0.1:8000/codu/rest/moto/", "http://127.0.0.1:8000/codu/rest/veiculo/", "http://127.0.0.1:8000/codu/rest/helicoptero/"]
+        let total_livre = 0, total_indisp = 0, total_total = 0;
+        for (let i = 0; i < urls.length; i++) {
+            let livre, indisp, total;
+            let url = urls[i]
+            await fetch(url)
+                .then(response => response.json())
+                .then(async data => {
+                    livre = data.filter(meio => meio.disponivel === true && meio.localOrigem === posto_id).length;
+                    indisp = data.filter(meio => meio.disponivel === false && meio.localOrigem === posto_id).length;
+                    total = livre + indisp;
+                    total_livre += livre;
+                    total_indisp += indisp;
+                    total_total += total;
+                })
+                .catch((error) => {
+                    console.error("Error:", error);
+                });
+            let id=lista_id[i]
+            let texto = document.getElementById(id);
+            let tipo = url.split("/")[5]
+            texto.textContent = "Total de " + tipo + "s: " + total + ", " + livre + " disponíveis e " + indisp + " indisponíveis";
+        }
+        let texto = document.getElementById("num_meios");
+        texto.textContent = "Total de meios: " + total_total + ", " + total_livre + " disponíveis e " + total_indisp + " indisponíveis";
+    }
+
+    function redirect() {
+        window.location.href = "http://127.0.0.1:8000/codu/";
+    }
+</script>

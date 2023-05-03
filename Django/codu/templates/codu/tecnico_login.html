@@ -1,0 +1,27 @@
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}">
+
+<legend><h1> Login como Técnico </h1></legend>
+<label for="input-id-tecnico"></label><input type="text" id="input-id-tecnico" placeholder="ID do técnico">
+<button type="button" onclick="redirect('login')">Login</button>
+
+<br><br>
+<button type="button" class="return-button" onclick="redirect('index')"> Voltar à página inicial </button>
+
+<script>
+    function redirect(login_type) {
+        let input, id
+        if(login_type === "login"){
+            input = document.getElementById("input-id-tecnico");
+            id = input.value;
+            if (id === "") {
+                alert("ID não pode ser nulo!");
+                window.location.href = ""
+            } else {
+                window.location.href = id + "/";
+            }
+        } else if(login_type === "index"){
+            window.location.href = "http://127.0.0.1:8000/codu/";
+        }
+    }
+</script>

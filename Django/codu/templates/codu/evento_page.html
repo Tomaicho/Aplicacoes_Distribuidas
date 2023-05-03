@@ -1,0 +1,73 @@
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}">
+
+<legend><h1 id="identificador"></h1></legend>
+<p id="doente"></p>
+<p id="evento"></p>
+<p id="local"></p>
+<p id="horas"></p>
+
+<legend><h1> Meios Mobilizados </h1></legend>
+<p id="meios"></p>
+
+<br><br>
+<button type="button" class="return-button" onclick="redirect()"> Voltar à página inicial </button>
+
+<script>
+    window.onload = async function() {
+        let pk = window.location.pathname.split("/")[3];
+        fetch(`http://127.0.0.1:8000/codu/rest/evento/${pk}/`)
+        .then((response) => response.json())
+        .then((data) => {
+            let identificador = document.getElementById("identificador");
+            identificador.textContent = "ID do evento: " + data.id + "; ID do técnico responsável: " + data.tecnico;
+            let doente = document.getElementById("doente");
+            doente.textContent = "Doente " + data.nomeDoente + ", " + data.idadeDoente + " anos de idade";
+            let evento = document.getElementById("evento");
+            evento.textContent = "Descrição: " + data.descricao + "; Grau: " + data.grau;
+            let local = document.getElementById("local");
+            local.textContent = "Local: " + data.localx + ", " + data.localy;
+            let horas = document.getElementById("horas");
+            let ativ, concl
+            if (data.timestampAtiv) {
+                ativ = new Date(data.timestampAtiv).toLocaleString();
+            } else {
+                ativ = "N/A";
+            }
+            if (data.timestampConcl) {
+                concl = new Date(data.timestampConcl).toLocaleString();
+            } else {
+                concl = "N/A";
+            }
+            horas.textContent = "Início: " + ativ + "; Fim: " + concl;
+        })
+        .catch((error) => {
+            console.error("Error:", error);
+        });
+
+        let meios = document.getElementById("meios");
+        meios.textContent = "";
+        let urls = ["http://127.0.0.1:8000/codu/rest/ambulancia/", "http://127.0.0.1:8000/codu/rest/moto/", "http://127.0.0.1:8000/codu/rest/veiculo/", "http://127.0.0.1:8000/codu/rest/helicoptero/"]
+        for (let i = 0; i < urls.length; i++) {
+            let url = urls[i];
+            let meios_list;
+            await fetch(url)
+                .then(response => response.json())
+                .then(async data => {
+                    meios_list = data.filter(meio => meio.eventos.includes(parseInt(pk)));
+                })
+                .catch((error) => {
+                    console.error("Error:", error);
+                });
+            for (let j = 0; j < meios_list.length; j++) {
+                let meio = meios_list[j];
+                meios.textContent += meio.tipo + " " + meio.id;
+                meios.textContent += "; "
+            }
+        }
+    }
+
+    function redirect() {
+        window.location.href = "http://127.0.0.1:8000/codu/";
+    }
+</script>

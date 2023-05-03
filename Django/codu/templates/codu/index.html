@@ -1,0 +1,108 @@
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}">
+
+<legend><h1> Últimos eventos </h1></legend>
+<p id="event-container"></p>
+<template id="event-template">
+    <ul>
+        <li><a href="#"></a></li>
+    </ul>
+</template>
+
+<legend><h1> Pesquisar evento </h1></legend>
+<form>
+    <label for="input-evento"></label><input type="text" id="input-evento" placeholder="ID do evento">
+    <button type="button" onclick="redirect('evento')">Pesquisar</button>
+</form>
+
+<legend><h1> Pesquisar posto </h1></legend>
+<form>
+    <select id="posto"></select>
+    <button type="button" onclick="redirect('posto')">Pesquisar</button>
+</form>
+
+<legend><h1> Logins </h1></legend>
+<button type="button" class="login-button" onclick="redirect('admin')">Admin</button>
+<br>
+<button type="button" class="login-button" onclick="redirect('tecnico')">Técnico</button>
+<br>
+<button type="button" class="login-button" onclick="redirect('meio')">Meio de Socorro</button>
+
+<script>
+    window.onload = function() {
+        let container = document.getElementById("event-container");
+        let template = document.getElementById("event-template");
+        fetch(`http://127.0.0.1:8000/codu/rest/evento/`)
+        .then((response) => response.json())
+        .then((data) => {
+            data.sort((a, b) => b.id - a.id);
+            for (let i = 0; i < 5; i++) {
+                let event = data[i];
+                let id = event.id;
+                let eventClone = template.content.cloneNode(true);
+                let eventLink = eventClone.querySelector("a");
+                eventLink.href = `/codu/evento/${id}/`;
+                let ativ = new Date(event.timestampAtiv).toLocaleString()
+                eventLink.textContent = "Início: " + ativ;
+                if (event.timestampConcl) {
+                    let concl = new Date(event.timestampConcl).toLocaleString()
+                    eventLink.textContent += "; Fim: " + concl;
+                }
+                eventLink.textContent += "; Técnico " + event.tecnico + "; Grau " + event.grau + "; " + event.descricao;
+                container.appendChild(eventClone);
+            }
+        })
+        .catch((error) => {
+            console.error("Error:", error);
+        });
+
+        fetch('http://127.0.0.1:8000/codu/rest/posto/')
+            .then(response => response.json())
+            .then(data => {
+                let select = document.getElementById('posto');
+                for (let i = 0; i < data.length; i++) {
+                    let option = document.createElement('option');
+                    option.value = data[i].descricao;
+                    option.text = data[i].descricao;
+                    select.add(option);
+                }
+            })
+            .catch((error) => {
+                console.error("Error:", error);
+            });
+    }
+
+    function redirect(login_type) {
+        let id, input;
+        if(login_type === "evento"){
+            input = document.getElementById("input-evento");
+            id = input.value;
+            if (id === "") {
+                alert("ID não pode ser nulo!");
+                window.location.href = ""
+            } else {
+                window.location.href = "evento/" + id + "/";
+            }
+        }
+        else if(login_type === "posto"){
+            input = document.getElementById("posto");
+            id = input.value;
+            if (id === "") {
+                alert("ID não pode ser nulo!");
+                window.location.href = ""
+            } else {
+                window.location.href = "posto/" + id + "/";
+            }
+        }
+        else if(login_type === "admin"){
+            window.location.href = '/admin/';
+        }
+        else if(login_type === "tecnico"){
+            window.location.href = '/codu/tecnico/';
+        }
+        else if(login_type === "meio"){
+            window.location.href = '/codu/meio/';
+        }
+
+    }
+</script>

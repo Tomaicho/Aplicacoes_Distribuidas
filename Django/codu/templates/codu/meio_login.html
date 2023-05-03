@@ -1,0 +1,159 @@
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}">
+
+<legend><h1> Login como Meio de Socorro </h1></legend>
+<label for="tipo-login"> Tipo de meio: </label>
+<select id="tipo-login">
+  <option value="Ambulancia">Ambulância</option>
+  <option value="Moto">Moto</option>
+  <option value="Veiculo">Veículo</option>
+  <option value="Helicoptero">Helicóptero</option>
+</select>
+<br><br>
+<label for="input-id-meio"></label> <input type="text" id="input-id-meio" placeholder="ID do Meio de Socorro">
+<button type="button" onclick="redirect('login')">Login</button>
+
+<br><br>
+<button type="button" class="return-button" onclick="redirect('index')"> Voltar à página inicial </button>
+
+<legend><h1> Lista dos Meios </h1></legend>
+<label for="tipo-procura"> Tipo de meio: </label>
+<select id="tipo-procura">
+    <option value="Todos">Todos</option>
+    <option value="Ambulancia">Ambulância</option>
+    <option value="Moto">Moto</option>
+    <option value="Veiculo">Veículo</option>
+    <option value="Helicoptero">Helicóptero</option>
+</select>
+<label for="tipo-disponibilidade"> Estado: </label>
+<select id="tipo-disponibilidade">
+    <option value="Todos">Todos</option>
+    <option value="Livres">Disponíveis</option>
+    <option value="Mobilizados">Indisponíveis</option>
+</select>
+<button type="button" class="return-button" onclick="procura()"> Procurar </button>
+<div id="meio"></div>
+
+<script>
+    async function procura() {
+        let amb, mot, vei, hel = false;
+        let selectedType = document.getElementById("tipo-procura").value;
+        switch (selectedType) {
+            case "Todos":
+                amb = true;
+                mot = true;
+                vei = true;
+                hel = true;
+                break;
+            case "Ambulancia":
+                amb = true;
+                break;
+            case "Moto":
+                mot = true;
+                break;
+            case "Veiculo":
+                vei = true;
+                break;
+            case "Helicoptero":
+                hel = true;
+                break;
+        }
+
+        let selectedDisp = document.getElementById("tipo-disponibilidade").value;
+        let procura_urls = [];
+        if (amb) {
+            procura_urls.push("http://127.0.0.1:8000/codu/rest/ambulancia/")
+        }
+        if (mot) {
+            procura_urls.push("http://127.0.0.1:8000/codu/rest/moto/")
+        }
+        if (vei) {
+            procura_urls.push("http://127.0.0.1:8000/codu/rest/veiculo/")
+        }
+        if (hel) {
+            procura_urls.push("http://127.0.0.1:8000/codu/rest/helicoptero/")
+        }
+        let meios = [];
+        let meios_temp_dis = [];
+        let meios_temp_ind = [];
+        for (let i = 0; i < procura_urls.length; i++) {
+            let url = procura_urls[i];
+            await fetch(url)
+                .then(response => response.json())
+                .then(async data => {
+                    meios_temp_dis = data.filter(meio => meio.disponivel === true);
+                    meios_temp_ind = data.filter(meio => meio.disponivel === false);
+                })
+                .catch((error) => {
+                    console.error("Error:", error);
+                });
+            switch (selectedDisp) {
+                case "Todos":
+                    if (meios_temp_dis.length > 0) {
+                        meios.push(meios_temp_dis)
+                    }
+                    if (meios_temp_ind.length > 0) {
+                        meios.push(meios_temp_ind)
+                    }
+                    break;
+                case "Livres":
+                    if (meios_temp_dis.length > 0) {
+                        meios.push(meios_temp_dis)
+                    }
+                    break;
+                case "Mobilizados":
+                    if (meios_temp_ind.length > 0) {
+                        meios.push(meios_temp_ind)
+                    }
+                    break;
+            }
+        }
+
+        let htmlString = "";
+        for (let i = 0; i < meios.length; i++) {
+            let lista_meios = meios[i]
+            for (let j = 0; j < lista_meios.length; j++) {
+                let meio = lista_meios[j];
+                htmlString += meio.tipo + " " + meio.id + ": " + meio.localOrigem + "; ";
+                if (meio.disponivel) {
+                    htmlString += "Disponível;";
+                } else {
+                    htmlString += "Indisponível no evento " + meio.eventoAtual;
+                }
+                htmlString += "; Total de " + meio.totalMobilizacoes + " mobilizações e " + meio.totalDistancia + " km"
+                htmlString += "<br>";
+            }
+        }
+        document.getElementById("meio").innerHTML = htmlString;
+    }
+
+    function redirect(login_type) {
+        let input, id, selectedOption
+        if (login_type === "login") {
+            input = document.getElementById("input-id-meio");
+            id = input.value;
+            selectedOption = document.getElementById("tipo-login").value;
+            if (id === "") {
+                alert("ID não pode ser nulo!");
+                window.location.href = ""
+            } else {
+                if (selectedOption === "Ambulancia") {
+                    window.location.href = "ambulancia/" + id + "/";
+                } else if (selectedOption === "Moto") {
+                    window.location.href = "moto/" + id + "/";
+                } else if (selectedOption === "Veiculo") {
+                    window.location.href = "veiculo/" + id + "/";
+                } else if (selectedOption === "Helicoptero") {
+                    window.location.href = "helicoptero/" + id + "/";
+                } else {
+                    alert("Tem de selecionar um tipo de meio!");
+                    window.location.href = "";
+                }
+            }
+        } else if (login_type === "index") {
+            window.location.href = "http://127.0.0.1:8000/codu/";
+        } else {
+            window.location.href = "";
+        }
+    }
+</script>
